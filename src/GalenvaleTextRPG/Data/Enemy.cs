@@ -1,6 +1,6 @@
 namespace Galenvale
 {
-    internal sealed class Enemy
+    public sealed class Enemy
     {
         public string Name;
         public int MaxHp;

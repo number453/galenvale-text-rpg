@@ -6,28 +6,33 @@ namespace Galenvale
 {
     static class Combat
     {
-        public static void RunEncounter(
-            string encounterTitle,
-            List<Enemy> enemies,
-            int rewardGold,
-            bool allowPotions,
-            bool hasHeal20Potion,
-            PlayerClass playerClass,
-            string playerNameUi,
-            ref int gold,
-            ref int health,
-            ref int maxHealth,
-            ref int damage,
-            ref int accuracy,
-            ref int critChance,
-            ref int enemyCritReduction,
-            ref int executeCooldown,
-            ref int shockCooldown,
-            ref int healCooldown,
-            ref int bleedTurns,
-            ref int burnTurns,
-            ref int weaknessTurns
-        )
+        public static bool RunEncounter(
+    string encounterTitle,
+    List<Enemy> enemies,
+    int rewardGold,
+    bool allowPotions,
+    bool hasHeal20Potion,
+    PlayerClass playerClass,
+    string playerNameUi,
+    ref int gold,
+    ref int potionHeal10Count,
+    ref int potionHeal20Count,
+    ref int potionResetCooldownCount,
+    ref int health,
+    ref int maxHealth,
+    ref int damage,
+    ref int accuracy,
+    ref int critChance,
+    ref int enemyCritReduction,
+    ref int executeCooldown,
+    ref int shockCooldown,
+    ref int healCooldown,
+    ref int bleedTurns,
+    ref int burnTurns,
+    ref int weaknessTurns
+)
+
+
         {
             int turn = 1;
 
@@ -46,7 +51,7 @@ namespace Galenvale
                     Console.WriteLine();
                     Ui.Narrate("You collapse. The world fades.");
                     Ui.Narrate("Game Over.");
-                    Environment.Exit(0);
+                    return false;
                 }
 
                 if (enemies.All(e => !e.Alive))
@@ -58,7 +63,7 @@ namespace Galenvale
                         gold += rewardGold;
                         Ui.Narrate($"You gain {rewardGold} gold.");
                     }
-                    return;
+                    return true;
                 }
 
                 Ui.PrintDebuffs(bleedTurns, burnTurns, weaknessTurns);
@@ -85,7 +90,7 @@ namespace Galenvale
                         usedTurn = WarriorExecuteGauntlet(enemies, damage, accuracy, ref executeCooldown);
                     else if (playerClass == PlayerClass.Mage)
                     {
-                        MageShockGauntlet(Game.Rng, damage, ref shockCooldown, enemies, procChancePerEnemy: 40);
+                        MageShockGauntlet(Game.Rng, damage, ref shockCooldown, enemies, procChancePerEnemy: 50);
                         usedTurn = false; // Shock does NOT use a turn
                     }
                     else
@@ -95,17 +100,70 @@ namespace Galenvale
                 }
                 else if (input == "POTION" && allowPotions)
                 {
-                    usedTurn = Potions.UsePotionInCombat(
-                        playerClass,
-                        ref gold,
-                        ref health,
-                        maxHealth,
-                        ref executeCooldown,
-                        ref shockCooldown,
-                        ref healCooldown,
-                        hasHeal20Potion
-                    );
+                    Ui.Narrate("Choose a potion: HEAL10 | HEAL20 | RESET | BACK");
+                    Console.Write("> ");
+                    string potionChoice = Input.GetNormalizedCommand();
+
+                    if (potionChoice == "BACK")
+                        continue;
+
+                    if (potionChoice == "HEAL10")
+                    {
+                        if (potionHeal10Count <= 0)
+                        {
+                            Ui.Narrate("You have no HEAL 10 potions.");
+                            continue;
+                        }
+
+                        potionHeal10Count--;
+                        health += 10;
+                        if (health > maxHealth) health = maxHealth;
+                        Ui.Narrate("You drink a HEAL 10 potion.");
+                        usedTurn = true;
+                    }
+                    else if (potionChoice == "HEAL20")
+                    {
+                        if (!hasHeal20Potion)
+                        {
+                            Ui.Narrate("You do not know how to use this potion yet.");
+                            continue;
+                        }
+
+                        if (potionHeal20Count <= 0)
+                        {
+                            Ui.Narrate("You have no HEAL 20 potions.");
+                            continue;
+                        }
+
+                        potionHeal20Count--;
+                        health += 20;
+                        if (health > maxHealth) health = maxHealth;
+                        Ui.Narrate("You drink a HEAL 20 potion.");
+                        usedTurn = true;
+                    }
+                    else if (potionChoice == "RESET")
+                    {
+                        if (potionResetCooldownCount <= 0)
+                        {
+                            Ui.Narrate("You have no RESET potions.");
+                            continue;
+                        }
+
+                        potionResetCooldownCount--;
+                        executeCooldown = 0;
+                        shockCooldown = 0;
+                        healCooldown = 0;
+                        Ui.Narrate("Your abilities feel refreshed!");
+                        usedTurn = true;
+                    }
+                    else
+                    {
+                        Ui.Narrate("Invalid potion choice.");
+                        continue;
+                    }
                 }
+
+            
                 else if (input == "WAIT")
                 {
                     Ui.Narrate("You wait cautiously...");
@@ -208,10 +266,10 @@ namespace Galenvale
                 return false;
             }
 
-            int threshold = (int)Math.Ceiling(e.MaxHp * 0.20);
+            int threshold = (int)Math.Ceiling(e.MaxHp * 0.40);
             if (e.Hp > threshold)
             {
-                Ui.Narrate("You cannot Execute yet! The foe must be below 20% health.");
+                Ui.Narrate("You cannot Execute yet! The foe must be below 40% health.");
                 return false;
             }
 
@@ -319,7 +377,7 @@ namespace Galenvale
                 Ui.Narrate("No debuffs cling to you, so the light simply warms your soul.");
             }
 
-            healCooldown = 8;
+            healCooldown = 5;
             return true;
         }
     }
@@ -345,7 +403,7 @@ namespace Galenvale
                 // guaranteed hit, special damage (feels like a boss move)
                 int effectiveCrit = Math.Max(0, attacker.CritChance - enemyCritReduction);
                 bool crit = Game.RollHit(Game.Rng, effectiveCrit);
-                int dealt = crit ? attacker.Damage * 4 : attacker.Damage * 2;
+                int dealt = crit ? attacker.Damage * 2 : attacker.Damage * 1;
 
                 health -= dealt;
                 if (health < 0) health = 0;

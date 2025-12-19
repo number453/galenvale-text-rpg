@@ -1,10 +1,21 @@
 namespace Galenvale
 {
-    // Small enums moved into a dedicated file to improve discoverability.
-    internal enum PlayerClass { Warrior, Mage, Priest }
-    internal enum Slot { Weapon, Armor, Helm }
+    // Enums are part of the public game model and save system
+    public enum PlayerClass
+    {
+        Warrior,
+        Mage,
+        Priest
+    }
 
-    internal enum PotionType
+    public enum Slot
+    {
+        Weapon,
+        Armor,
+        Helm
+    }
+
+    public enum PotionType
     {
         Heal10,
         Heal20,

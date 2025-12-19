@@ -20,6 +20,9 @@ namespace Galenvale
             ref int accuracy,
             ref int critChance,
             ref int enemyCritReduction,
+            ref int potionHeal10Count,
+            ref int potionHeal20Count,
+            ref int potionResetCooldownCount,
             HashSet<string> ownedGearKeys,
             Dictionary<Slot, GearItem?> equippedBySlot,
             List<GearItem> gearForThisTown,
@@ -90,13 +93,15 @@ namespace Galenvale
                         continue;
                     }
 
-                    Potions.PotionShop(
-                        townName,
-                        ref gold,
-                        ref health,
-                        maxHealth,
-                        hasHeal20Potion
+                    PotionShop.Open(
+                    townName,
+                    ref gold,
+                    ref potionHeal10Count,
+                    ref potionHeal20Count,
+                    ref potionResetCooldownCount,
+                    hasHeal20Potion
                     );
+
                 }
                 else
                 {
@@ -218,7 +223,7 @@ namespace Galenvale
             }
         }
 
-        static void RecomputeDerivedStats(
+        public static void RecomputeDerivedStats(
             PlayerClass playerClass,
             int baseMaxHealth,
             int baseDamage,
@@ -276,113 +281,4 @@ namespace Galenvale
         }
     }
 
-    static class Potions
-    {
-        public static void PotionShop(string townName, ref int gold, ref int health, int maxHealth, bool hasHeal20Potion)
-        {
-            while (true)
-            {
-                Console.WriteLine();
-                Console.WriteLine($"=== POTION SHOP - {townName} ===");
-                Console.WriteLine($"GOLD: {gold} | HP: {health}/{maxHealth}");
-                Console.WriteLine("BUY HEALING POTION (10 HP) - 10 GOLD");
-                if (hasHeal20Potion) Console.WriteLine("BUY GREATER HEALING POTION (20 HP) - 20 GOLD");
-                Console.WriteLine("BACK");
-                Console.Write("> ");
-
-                string input = Input.GetNormalizedCommand();
-                if (input == "BACK") return;
-
-                if (input.Contains("HEALING") || input == "HEAL")
-                {
-                    if (gold < 10) { Ui.Narrate("You do not have enough gold."); continue; }
-                    gold -= 10;
-                    int before = health;
-                    health = Math.Min(maxHealth, health + 10);
-                    Ui.Narrate($"You buy and drink a healing potion. {before} -> {health} HP.");
-                    continue;
-                }
-
-                if (hasHeal20Potion && (input.Contains("GREATER") || input == "HEAL 20" || input == "HEAL20"))
-                {
-                    if (gold < 20) { Ui.Narrate("You do not have enough gold."); continue; }
-                    gold -= 20;
-                    int before = health;
-                    health = Math.Min(maxHealth, health + 20);
-                    Ui.Narrate($"You buy and drink a greater healing potion. {before} -> {health} HP.");
-                    continue;
-                }
-
-                Ui.Narrate("Try buying a potion or type BACK.");
-            }
-        }
-
-        public static bool UsePotionInCombat(
-            PlayerClass playerClass,
-            ref int gold,
-            ref int health,
-            int maxHealth,
-            ref int executeCooldown,
-            ref int shockCooldown,
-            ref int healCooldown,
-            bool hasHeal20Potion
-        )
-        {
-            Console.WriteLine();
-            Ui.Narrate("Potions:");
-            Ui.Narrate("HEALING POTION (10 HP) - 10 GOLD");
-            if (hasHeal20Potion) Ui.Narrate("GREATER HEALING POTION (20 HP) - 20 GOLD");
-            Ui.Narrate("COOLDOWN RESET POTION - 70 GOLD (only works if your ability is on cooldown)");
-            Console.Write("Type: HEAL 10 | HEAL 20 | RESET | BACK\n> ");
-
-            string choice = Input.GetNormalizedCommand();
-            if (choice == "BACK") return false;
-
-            if (choice == "HEAL10" || choice == "HEAL 10")
-            {
-                if (gold < 10) { Ui.Narrate("You do not have enough gold."); return false; }
-                gold -= 10;
-                int before = health;
-                health = Math.Min(maxHealth, health + 10);
-                Ui.Narrate($"You drink a healing potion. {before} -> {health} HP.");
-                return true;
-            }
-
-            if ((choice == "HEAL20" || choice == "HEAL 20") && hasHeal20Potion)
-            {
-                if (gold < 20) { Ui.Narrate("You do not have enough gold."); return false; }
-                gold -= 20;
-                int before = health;
-                health = Math.Min(maxHealth, health + 20);
-                Ui.Narrate($"You drink a greater healing potion. {before} -> {health} HP.");
-                return true;
-            }
-
-            if (choice == "RESET")
-            {
-                int cd = Game.GetAbilityCooldown(playerClass, executeCooldown, shockCooldown, healCooldown);
-                if (cd <= 0)
-                {
-                    Ui.Narrate("Your ability is not on cooldown. The potion would be wasted.");
-                    return false;
-                }
-                if (gold < 70)
-                {
-                    Ui.Narrate("You do not have enough gold.");
-                    return false;
-                }
-
-                gold -= 70;
-                if (playerClass == PlayerClass.Warrior) executeCooldown = 0;
-                else if (playerClass == PlayerClass.Mage) shockCooldown = 0;
-                else healCooldown = 0;
-
-                Ui.Narrate("You drink the cooldown reset potion. Your ability is ready!");
-                return true;
-            }
-
-            Ui.Narrate("Invalid potion choice.");
-            return false;
-        }
-    }
 }

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Galenvale
 {
-    internal sealed class GearItem
+    public sealed class GearItem
     {
         public string Key;          // internal id (no spaces)
         public string Name;         // UI name (ALL CAPS WITH SPACES)
